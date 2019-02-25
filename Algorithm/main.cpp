@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
-
+#include <random>
 /**********MACRO OVERLOAD*************/
 #define CAT( A, B ) A ## B
 #define SELECT( NAME, NUM ) CAT( NAME ## _, NUM )
@@ -25,7 +25,7 @@
 #define RANGE_2(a,b) RANGE_3(a,b,1)
 #define RANGE_1(count) RANGE_3(0,count,1)
 
-#define MTIME(a,b,c) measure_execution_time(a,b,c)
+#define MTIME(message,nrun,function) measure_execution_time(message,nrun,function)
 void measure_execution_time(std::string message, const int nrun, std::function<void()> function) {
     
     long long sum = 0;
@@ -63,7 +63,7 @@ int binary_search_linear(std::vector<int> &data, int target) {
 
 int binary_search_recursive(std::vector<int> &data, int a, int c, int target) {
     
-    if(c < a)
+    if(a > c)
         return -1;
     
     int b = (a + c) / 2;
@@ -96,21 +96,75 @@ void binary_search_test() {
         std::for_each(data.begin(), data.end(), [&data](int &i){
             assert(binary_search_linear(data, i) == i);
         });
-        assert(binary_search_linear(data, 80000) == -1);
+        assert(binary_search_linear(data, DATA_SIZE + 1000) == -1);
     });
     
     MTIME("recursive-binary-search", 100, [&data](){
         std::for_each(data.begin(), data.end(), [&data](int &i){
             assert(binary_search_recursive(data, i) == i);
         });
-        assert(binary_search_recursive(data, 80000) == -1);
+        assert(binary_search_recursive(data, DATA_SIZE + 1000) == -1);
+    });
+    
+    MTIME("std-binary-search", 100, [&data](){
+        std::for_each(data.begin(), data.end(), [&data](int &i){
+            auto itr = std::lower_bound(data.begin(), data.end(), i);
+            if(itr != data.end()) {
+                assert(*itr == i);
+            } else {
+                assert(false);
+            }
+        });
+        
+        auto itr = std::lower_bound(data.begin(), data.end(), DATA_SIZE + 1000);
+        assert(itr == data.end());
     });
     
     #undef DATA_SIZE
 }
 
+void selection_sort(std::vector<int> &data) {
+    auto a = data.begin();
+    while(a != data.end()) {
+        auto mn = std::min_element(a, data.end());
+        std::iter_swap(a, mn);
+        a++;
+    }
+}
+
+void sort_test(std::function<void(std::vector<int> &data)> sort_function, std::string algorithm_name) {
+#define DATA_SIZE 50000
+    
+    std::vector<int> data;
+    data.resize(DATA_SIZE);
+    //populate
+    std::generate(data.begin(), data.end(), [](){
+        static int counter = -1;
+        return ++counter;
+    });
+    
+    std::vector<int> data_copy;
+    std::copy(data.begin(), data.end(), std::back_inserter(data_copy));
+    
+    //shuffle
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(data.begin(), data.end(), g);
+    
+    MTIME(algorithm_name, 5, [&](){
+        sort_function(data);
+    });
+    
+    auto itr = std::mismatch(data.begin(), data.end(),
+                  data_copy.begin(), data_copy.end()).first;
+    assert(itr == data.end());
+    
+#undef DATA_SIZE
+}
+
 int main()
 {
-    binary_search_test();
+//    binary_search_test();
+    sort_test(selection_sort, "selection-sort");
     return 0;
 }
